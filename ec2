@@ -2,28 +2,30 @@
 
 # Nome do arquivo do certificado (dentro da pasta ~/.ssh/)
 certificado_ssh=portal-de-boletos-prod.pem
-regiao_aws_padrao="sa-east-1"
+# Definir uma região padrão da AWS
+regiao_aws="sa-east-1"
 
 # Função para listar as instâncias EC2
 listar_ec2() {
-  local regiao_aws_padrao=$1
-  echo -e "\e[1;36m===== Menu de Instâncias EC2 (\e[1;32m$regiao_aws_padrao\e[1;36m) =====\e[0m"
-  instancias=$(aws ec2 describe-instances --filters "Name=instance-state-name,Values=running" --query "Reservations[*].Instances[*].[Tags[?Key=='Name'].Value|[0],InstanceType,PrivateIpAddress,State.Name]" --output json --region $regiao_aws_padrao)
-  instancias_array=($(echo "$instancias" | jq -r '.[] | @json'))
-  if [ -n "$instancias_array" ]; then
+  local regiao_aws=$1
+  echo -e "\e[1;36m===== Menu de Instâncias EC2 (\e[1;32m$regiao_aws\e[1;36m) =====\e[0m"
+  instancias=$(aws ec2 describe-instances --filters "Name=instance-state-name,Values=running" --query "Reservations[*].Instances[*].[Tags[?Key=='Name'].Value|[0],InstanceType,PrivateIpAddress,State.Name]" --output text --region $regiao_aws)
+  if [ -n "$instancias" ]; then
       # Limpar tabela com dados do EC2
       > /tmp/tabela_ec2.txt
-      for i in "${!instancias_array[@]}"; do
-          dados=($(echo "${instancias_array[$i]}" | jq -r '.[]'))
-          nome="$(echo "${dados[1]}" | sed 's/"//g; s/,//g')"
-          tipo="$(echo "${dados[2]}" | sed 's/"//g; s/,//g')"
-          ip="$(echo "${dados[3]}" | sed 's/"//g; s/,//g')"
-          echo -e "        \e[1;32m$((i+1)):\e[0m\t$nome\t$tipo\t$ip" >> /tmp/tabela_ec2.txt
-      done
+      contador=1
+      while read -r linha; do
+          IFS=$'\t' read -ra campos <<< "$linha"
+          nome="${campos[0]}"
+          tipo="${campos[1]}"
+          ip="${campos[2]}"
+          echo -e "        \e[1;32m$contador:\e[0m\t$nome\t$tipo\t$ip" >> /tmp/tabela_ec2.txt
+          ((contador++))
+      done <<< "$instancias"
       column -t -s $'\t' /tmp/tabela_ec2.txt
       echo -e "\e[1;36m==============================================\e[0m"
   else
-      echo -e "\e[1;31mNenhuma instância em 'running' encontrada em: \e[1;32m$regiao_aws_padrao\e[0m"
+      echo -e "\e[1;31mNenhuma instância em 'running' encontrada em: \e[1;32m$regiao_aws\e[0m"
       exit
   fi
 }
@@ -45,16 +47,20 @@ listar_containers() {
     fi
 }
 
+# Verificar se o usuário forneceu a região da AWS como parâmetro
+if [[ $# -eq 1 ]]; then
+  regiao_aws="$1"
+fi
 while true; do
-  listar_ec2 "$regiao_aws_padrao"
+  listar_ec2 "$regiao_aws"
   echo -e "\n\e[1;36mDigite o número da instância que deseja entrar (ou 'q' para sair):\e[0m "
   read numero_instancia
   if [[ $numero_instancia == "q" ]]; then
       break
   fi
   # Extrair o ip da instância com base no número selecionado
-  instancia_ip=$(cat /tmp/tabela_ec2.txt | sed -n "${numero_instancia}p" | awk '{print $NF}')
-  instancia_nome=$(cat /tmp/tabela_ec2.txt | sed -n "${numero_instancia}p" | awk '{print $2}')
+  instancia_ip=$(cat /tmp/tabela_ec2.txt | sed -n "${numero_instancia}p" | awk -F'\t' '{print $NF}')
+  instancia_nome=$(cat /tmp/tabela_ec2.txt | sed -n "${numero_instancia}p" | awk -F'\t' '{print $2}')
   if [[ -z $instancia_ip ]]; then
       echo -e "\e[1;31mErro: Número de instância inválido.\e[0m"
   else
