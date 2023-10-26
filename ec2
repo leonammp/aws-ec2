@@ -5,10 +5,16 @@ certificado_ssh=portal-de-boletos-prod.pem
 # Definir uma região padrão da AWS
 regiao_aws="sa-east-1"
 
+#CORES
+COR_MENU="\e[1;36m"
+COR_VERDE="\e[1;32m"
+COR_VERMELHA="\e[1;31m"
+COR_BRANCA="\e[0m"
+
 # Função para listar as instâncias EC2
 listar_ec2() {
   local regiao_aws=$1
-  echo -e "\e[1;36m===== Menu de Instâncias EC2 (\e[1;32m$regiao_aws\e[1;36m) =====\e[0m"
+  echo -e "${COR_MENU}===== Menu de Instâncias EC2 (${COR_VERDE}$regiao_aws${COR_MENU}) =====${COR_BRANCA}"
   instancias=$(aws ec2 describe-instances --filters "Name=instance-state-name,Values=running" --query "Reservations[*].Instances[*].[Tags[?Key=='Name'].Value|[0],InstanceType,PrivateIpAddress,State.Name]" --output text --region $regiao_aws)
   if [ -n "$instancias" ]; then
       # Limpar tabela com dados do EC2
@@ -19,13 +25,13 @@ listar_ec2() {
           nome="${campos[0]}"
           tipo="${campos[1]}"
           ip="${campos[2]}"
-          echo -e "        \e[1;32m$contador:\e[0m\t$nome\t$tipo\t$ip" >> /tmp/tabela_ec2.txt
+          echo -e "        ${COR_VERDE}$contador:${COR_BRANCA}\t$nome\t$tipo\t$ip" >> /tmp/tabela_ec2.txt
           ((contador++))
       done <<< "$instancias"
       column -t -s $'\t' /tmp/tabela_ec2.txt
-      echo -e "\e[1;36m==============================================\e[0m"
+      echo -e "${COR_MENU}==============================================${COR_BRANCA}"
   else
-      echo -e "\e[1;31mNenhuma instância em 'running' encontrada em: \e[1;32m$regiao_aws\e[0m"
+      echo -e "${COR_VERMELHA}Nenhuma instância em 'running' encontrada em: ${COR_VERDE}$regiao_aws${COR_BRANCA}"
       exit
   fi
 }
@@ -33,16 +39,16 @@ listar_ec2() {
 # Função para listar os containers Docker em uma instância
 listar_containers() {
     local servidor=$1
-    echo -e "\e[1;36m=== Menu de Containers Docker ===\e[0m"
+    echo -e "${COR_MENU}=== Menu de Containers Docker ===${COR_BRANCA}"
     containers=$(ssh -i ~/.ssh/$certificado_ssh ec2-user@$servidor 'docker ps --format "{{.Image}} => ID: {{.ID}}" | awk -F"/" "{print \$NF}"')
     if [ -n "$containers" ]; then
         IFS=$'\n' read -d '' -a containers_array <<< "$containers"
         for i in "${!containers_array[@]}"; do
-            echo -e "\e[1;32m\t$((i+1)):\e[0m ${containers_array[$i]}"
+            echo -e "${COR_VERDE}\t$((i+1)):${COR_BRANCA} ${containers_array[$i]}"
         done
-        echo -e "\e[1;36m=================================\e[0m"
+        echo -e "${COR_MENU}=================================${COR_BRANCA}"
     else
-        echo -e "\e[1;31mNenhum container Docker encontrado em: \e[1;32m$servidor\e[0m"
+        echo -e "${COR_VERMELHA}Nenhum container Docker encontrado em: ${COR_VERDE}$servidor${COR_BRANCA}"
         exit
     fi
 }
@@ -53,7 +59,7 @@ if [[ $# -eq 1 ]]; then
 fi
 while true; do
   listar_ec2 "$regiao_aws"
-  echo -e "\n\e[1;36mDigite o número da instância que deseja entrar (ou 'q' para sair):\e[0m "
+  echo -e "\n${COR_MENU}Digite o número da instância que deseja entrar (ou 'q' para sair):${COR_BRANCA} "
   read numero_instancia
   if [[ $numero_instancia == "q" ]]; then
       break
@@ -62,12 +68,12 @@ while true; do
   instancia_ip=$(cat /tmp/tabela_ec2.txt | sed -n "${numero_instancia}p" | awk -F'\t' '{print $NF}')
   instancia_nome=$(cat /tmp/tabela_ec2.txt | sed -n "${numero_instancia}p" | awk -F'\t' '{print $2}')
   if [[ -z $instancia_ip ]]; then
-      echo -e "\e[1;31mErro: Número de instância inválido.\e[0m"
+      echo -e "${COR_VERMELHA}Erro: Número de instância inválido.${COR_BRANCA}"
   else
-    echo -e "\nInstância: \e[1;32m$instancia_nome\e[0m"
+    echo -e "\nInstância: ${COR_VERDE}$instancia_nome${COR_BRANCA}"
     while true; do
         listar_containers "$instancia_ip"
-        echo -e "\n\e[1;36mDigite o número do container que deseja entrar (ou 'q' para voltar ao Menu de Instâncias):\e[0m "
+        echo -e "\n${COR_MENU}Digite o número do container que deseja entrar (ou 'q' para voltar ao Menu de Instâncias):${COR_BRANCA} "
         read numero_container
         if [[ $numero_container == "q" ]]; then
             break
@@ -75,7 +81,7 @@ while true; do
         # Extrair o ID do container com base no número selecionado
         container_id=$(echo "$containers" | sed -n "${numero_container}p" | awk '{print $NF}')
         if [[ -z $container_id ]]; then
-            echo -e "\e[1;31mErro: Número de container inválido.\e[0m"
+            echo -e "${COR_VERMELHA}Erro: Número de container inválido.${COR_BRANCA}"
         else
             # Comando para entrar no container Docker
             ssh -t -i ~/.ssh/$certificado_ssh ec2-user@$instancia_ip "docker exec -it $container_id bash"
