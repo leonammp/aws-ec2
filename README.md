@@ -10,7 +10,7 @@ Depois, no inicio do código do arquivo **"ec2"** vc pode alterar o nome do arqu
 #!/bin/bash
 
 # Nome do arquivo do certificado (dentro da pasta ~/.ssh/)
-certificado_ssh=<COLOQUE AQUI O NOME DO CERTIFICADO> # Exemplo: certificado_ssh=portal-de-boletos-prod.pem
+certificado_ssh=<COLOQUE AQUI O NOME DO CERTIFICADO> # Exemplo: certificado_ssh=meu_certificado.pem
 ```
 
 #### 1.2 Configuração de script bash
