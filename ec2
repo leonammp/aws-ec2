@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Nome do arquivo do certificado (dentro da pasta ~/.ssh/)
-certificado_ssh=portal-de-boletos-prod.pem
+certificado_ssh=<COLOQUE AQUI O NOME DO CERTIFICADO> # Exemplo: certificado_ssh=meu_certificado.pem
 # Definir uma região padrão da AWS
 regiao_aws="sa-east-1"
 
